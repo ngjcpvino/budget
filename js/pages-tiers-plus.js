@@ -64,10 +64,20 @@ function copieSecurite() {
   const texte = JSON.stringify({ ex: donnees.ex, rec: donnees.rec, cfg: configuration() });
   ouvrirFenetre(`<h2>Copie de sécurité</h2><textarea id=f_bk class=zone-copie>${securiser(texte)}</textarea><div class="boutons espace-haut"><button onclick="fermerFenetre()">Fermer</button><button class=bouton-principal onclick="telecharger()">Télécharger</button></div>`);
 }
-function telecharger() {
+/* Sur l'iPad et l'iPhone, l'app de l'écran d'accueil ne télécharge pas : le menu Partager le fait (« Enregistrer dans Fichiers »).
+   Ailleurs (l'ordi) : le téléchargement habituel. Partager annulé : rien */
+async function telecharger() {
+  const nom = 'budget-' + aujourdhui() + '.json', texte = trouver('#f_bk').value;
+  if (navigator.standalone !== undefined && navigator.canShare) {
+    const fichier = new File([texte], nom, { type: 'application/json' });
+    if (navigator.canShare({ files: [fichier] })) {
+      try { return await navigator.share({ files: [fichier] }); }
+      catch (e) { if (e.name === 'AbortError') return; }
+    }
+  }
   const lien = document.createElement('a');
-  lien.href = URL.createObjectURL(new Blob([trouver('#f_bk').value], { type: 'application/json' }));
-  lien.download = 'budget-' + aujourdhui() + '.json';
+  lien.href = URL.createObjectURL(new Blob([texte], { type: 'application/json' }));
+  lien.download = nom;
   lien.click();
 }
 

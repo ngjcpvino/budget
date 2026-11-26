@@ -82,10 +82,12 @@ const lireParts = () => [0, 1, 2].filter(i => trouver('#f_q' + i)).map(i => {
   const champ = trouver('#f_z' + i), v = lireMontant(champ.value);
   return [lireChamp('f_q' + i), v, v !== '' && champ.dataset.auto !== undefined && lireMontant(champ.dataset.auto) === v];
 });
+/* Les parts d'une récurrente passée à Placement (qui n'en a pas) : gardées, pour revenir à Dépense sans les retaper */
+let partsGardees = null;
 const lireFormulaire = () => ({
   type: lc('f_t') || 'e', d: lc('f_d'), desc: lc('f_desc'), cat: lc('f_cat'), amt: lireMontant(lc('f_amt')), by: lc('f_by'), mode: lc('f_mode'),
   ...(trouver('#f_nzf') ? { nzf: lireChamp('f_nzf') } : {}),
-  env: lc('f_env'), pj: trouver('#f_q0') ? lireParts() : null
+  env: lc('f_env'), pj: trouver('#f_q0') ? lireParts() : partsGardees
 });
 
 /* ----- « Juste pour… » : une rangée par part (3 au plus); un nom déjà pris n'est plus offert; « — » enlève la rangée ----- */
@@ -167,11 +169,14 @@ function appliquerParts(o) {
 /* Dépense et placement : catégorie, qui a payé, avec quel compte. Intérêts et remise : seulement le placement où ils vont */
 function champsFormulaire(e, recurrente) {
   const [N, J] = donnees.p, interetsOuRemise = e.type === 'f';
-  const comptes = donnees.modes.filter(m => !m.o || m.o === e.by).map(m => [cleCompte(m), m.n]), cles = comptes.map(x => x[0]);
-  const compteChoisi = cles.includes(e.mode) ? e.mode : e.type === 'e' && cles.includes(carteDe(e.by)) ? carteDe(e.by) : cles[0];
+  // Une récurrente (pas un modèle) ne passe jamais par la carte du relevé : elle n'est pas offerte, et rien n'est choisi d'avance à sa place
+  const barree = recurrente && e.freq !== 'x' ? carteReleve() : '', carte = carteDe(e.by);
+  const comptes = donnees.modes.filter(m => (!m.o || m.o === e.by) && cleCompte(m) !== barree).map(m => [cleCompte(m), m.n]), cles = comptes.map(x => x[0]);
+  const compteChoisi = cles.includes(e.mode) ? e.mode : e.type === 'e' && cles.includes(carte) ? carte : barree && carte === barree ? '' : cles[0];
+  partsGardees = e.type === 'e' ? null : e.pj || null;
   return (recurrente ? `<label>Genre${choixBoutons('f_t', [['e', 'Dépense'], ['m', 'Placement']], e.type || 'e', 1)}</label>` : `<div id=f_t data-v="${e.type || 'e'}" hidden></div>`)
     + champMontant('f_amt', e.amt, 'champ-montant') + '\n'
-    + (recurrente && e.freq === 'x' ? `<label>Description<input id=f_desc value="${securiser(e.desc)}"></label>\n`
+    + (recurrente && e.freq === 'x' ? `<input type=hidden id=f_d value="${e.d || e.start || ''}"><label>Description<input id=f_desc value="${securiser(e.desc)}"></label>\n`
       : `<div class=deux-colonnes><label>${recurrente ? 'Première date' : 'Date'}<input id=f_d type=date value="${e.d || e.start || ''}"></label><label>Description<input id=f_desc value="${securiser(e.desc)}"></label></div>\n`)
     + (interetsOuRemise ? '' : `<label>Catégorie<select id=f_cat>${options(donnees.cats, e.cat, e.cat ? '' : 'Choisis une catégorie')}</select></label>`) + '\n'
     + (e.type === 'e' ? '' : `<label>Placement<select id=f_env>${options(donnees.env.map(x => x.n), e.env)}</select></label>`) + '\n'

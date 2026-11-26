@@ -59,7 +59,7 @@ function lireReleve(champ) {
    Chaque ligne de la banque a un identifiant fixe (date, montant, nom, et son rang si la même revient). Une ligne déjà dans l'app
    (venue d'un fichier précédent, même supprimée depuis) est cachée : relire un fichier ne double rien */
 function preparerReleve(texte) {
-  const [N] = donnees.p, carte = carteDe(N), rangees = lireCsv(texte), titres = (rangees[0] || []).map(simplifier);
+  const [N] = donnees.p, carte = carteReleve(), rangees = lireCsv(texte), titres = (rangees[0] || []).map(simplifier);
   const [colDate, colNom, colMontant] = ['date', 'nom', 'montant'].map(x => titres.findIndex(v => v.startsWith(x)));
   if (!carte) return 'Il manque la carte de crédit de ' + N + ' (Plus → Comptes).';
   if (colDate < 0 || colNom < 0 || colMontant < 0) return "Ce fichier n'est pas un relevé de la " + nomCompte(carte) + '.';

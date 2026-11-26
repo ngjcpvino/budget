@@ -4,6 +4,7 @@
    (on part d'un modèle en haut d'une nouvelle dépense : formulaires.js)
    Chaque occurrence a un identifiant fixe : « g » + la récurrence + sa date d'origine. Elle n'est jamais refaite :
    une ligne qu'on a déplacée à une autre date, ou corrigée, garde son identifiant et reste telle quelle.
+   Une récurrente ne passe jamais par la carte du relevé (surLaCarte, modele.js) : une ancienne qui y est ne s'ajoute plus, et sa rangée le dit.
    ===================================================================== */
 
 /* La date de la k-ième occurrence (0 = la première date) */
@@ -19,7 +20,7 @@ function dateOccurrence(r, k) {
    une ligne déjà créée par l'autre appareil est alors connue, et n'est pas refaite (et la feuille ne l'écrase jamais : « creer ») */
 function genererRecurrentes() {
   const fin = aujourdhui(), ids = new Set(donnees.ex.map(e => e.id)), neuves = [];
-  donnees.rec.filter(r => !r.del && r.freq !== 'x' && dateValide(r.start)).forEach(r => {
+  donnees.rec.filter(r => !r.del && r.freq !== 'x' && dateValide(r.start) && !surLaCarte(r)).forEach(r => {
     for (let k = 0, d; (d = dateOccurrence(r, k)) <= fin && (!r.end || d <= r.end); k++) {
       const id = 'g' + r.id + d;
       if (ids.has(id) || donnees.ex.some(e => e.rid === r.id && e.d === d)) continue;
@@ -38,7 +39,8 @@ const lireRecurrente = () => ({ ...lireFormulaire(), id: trouver('#f_id').value,
 
 /* Une rangée de la liste : une récurrente (sa fréquence, depuis quand) ou un modèle (son compte; son montant, ou « à entrer ») */
 const rangeeRecurrente = r => `<div class=ligne-depense onclick="pageRecurrentes('${r.id}')"><span class=icone>${ICONES_TYPE[r.type] || iconeCategorie(r.cat) || ''}</span>`
-  + `<div><b>${securiser(r.desc)}</b><small>${FREQUENCES[r.freq] + (r.freq === 'x' ? (r.mode ? ' · ' + securiser(r.mode) : '') : ' · dès le ' + r.start)}</small></div>`
+  + `<div><b>${securiser(r.desc)}</b><small>${FREQUENCES[r.freq] + (r.freq === 'x' ? (r.mode ? ' · ' + securiser(r.mode) : '') : ' · dès le ' + r.start)}</small>`
+  + (surLaCarte(r) ? `<small class=texte-principal><b>Sur la ${securiser(nomCompte(r.mode))} : elle ne s'ajoute plus. Touche-la pour changer de compte ou la supprimer.</b></small>` : '') + '</div>'
   + (r.freq === 'x' && !+r.amt ? '<small>à entrer</small>' : `<b>${argent(r.amt)}</b>`) + '</div>';
 
 function pageRecurrentes(id, pre) {
@@ -59,7 +61,7 @@ function pageRecurrentes(id, pre) {
   lireEtat = lireRecurrente;
   const frequence = `<label>Fréquence<select id=f_fq onchange="rafraichirFormulaire()">${options(Object.entries({ ...FREQUENCES, x: 'Aléatoire (modèle)' }), e.freq)}</select></label>`;
   ouvrirFenetre(`<h2>${modele ? (e.id ? 'Modifier le modèle' : 'Nouveau modèle') : e.id ? 'Modifier la récurrente' : 'Nouvelle récurrente'}</h2><input type=hidden id=f_id value="${e.id || ''}">${champsFormulaire(e, true)}`
-    + (modele ? frequence : `<div class=deux-colonnes>${frequence}<label>Dernière date (facultatif)<input id=f_end type=date value="${e.end || ''}"></label></div>`)
+    + (modele ? frequence + `<input type=hidden id=f_end value="${e.end || ''}">` : `<div class=deux-colonnes>${frequence}<label>Dernière date (facultatif)<input id=f_end type=date value="${e.end || ''}"></label></div>`)
     + `<div class="boutons espace-haut">${e.id ? `<button class=bouton-danger onclick="supprimerRecurrente('${e.id}')">Supprimer</button>` : ''}<button onclick="pageRecurrentes()">Retour</button><button class=bouton-principal onclick="enregistrerRecurrente()">Enregistrer</button></div>`
     + (id && !modele ? historiqueRecurrente(id) : ''));
 }
@@ -102,6 +104,8 @@ function enregistrerRecurrente() {
   }
   if (o.type === 'm' && !o.env) return afficherMessage('Choisis un placement (à créer dans Plus).');
   if (!o.cat) return afficherMessage('Choisis une catégorie.');
+  if (!modele && (!o.mode || surLaCarte(o))) return afficherMessage(donnees.modes.some(m => (!m.o || m.o === o.by) && cleCompte(m) !== carteReleve())
+    ? 'Choisis un mode de paiement.' : o.by + " n'a pas d'autre compte que la " + nomCompte(carteReleve()) + ' (Plus → Modifier → Comptes).');
   if (modele && o.amt === '') partsSansMontant(o);
   else {
     const erreur = appliquerParts(o);
