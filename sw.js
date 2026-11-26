@@ -8,7 +8,7 @@
    Ne touche jamais à la feuille (les appels POST vers Apps Script).
    ===================================================================== */
 
-const VERSION = 'ebd576ed6781';
+const VERSION = 'b6e4faa96509';
 const EMPREINTES = {
   './': 'dee1825ae3af220f',
   'index.html': 'dee1825ae3af220f',
@@ -18,22 +18,22 @@ const EMPREINTES = {
   'icone-trait-167.png': 'a3c8961aee4e56d5',
   'icone-trait-180.png': '4b75c4bd42ab3aa7',
   'icone-trait-512.png': 'ff41c3d9dcf7309e',
-  'js/socle.js': '10fa5bdfe93037bf',
+  'js/socle.js': '64f783fa8f5d3c9c',
   'js/etat.js': 'c8ef18c897f7b319',
-  'js/modele.js': '027f75b68096f944',
+  'js/modele.js': 'f6a917e6a049c16f',
   'js/memoire.js': 'a8dbde51882722b9',
-  'js/serveur.js': 'c594eca00e02a81e',
-  'js/pages-accueil.js': 'cb3c34ea697a3541',
-  'js/pages-depenses.js': '62472ae0fad9417e',
+  'js/serveur.js': 'feb9ef1e71fdb940',
+  'js/pages-accueil.js': '7501979f99d02773',
+  'js/pages-depenses.js': 'd3688ce417ee0a15',
   'js/pages-placements.js': '795b89223fbf83c1',
-  'js/pages-comptes.js': 'a9bcdb74abf1dde0',
+  'js/pages-comptes.js': 'a35f696cc038b9b9',
   'js/pages-tiers-plus.js': 'e6315f1e3f5dfc19',
-  'js/formulaires.js': '312654c761799dd9',
+  'js/formulaires.js': '4256749e5a284d44',
   'js/modifier.js': '01656a153e856443',
-  'js/recurrentes.js': 'f1c0848dfb9f33ea',
-  'js/releve.js': '81a72fe0d7f6c0a9',
-  'js/code.js': 'e6327a12f2c1abb1',
-  'js/demarrage.js': '3038a81d08ec8db1'
+  'js/recurrentes.js': '62c97cd9219a2eba',
+  'js/releve.js': '806b732191d3f6cb',
+  'js/code.js': 'd9d4a69061651edd',
+  'js/demarrage.js': '607a2ccb1d1c6524'
 };
 const CACHE_APP = 'budget-app-' + VERSION;
 
