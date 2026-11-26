@@ -30,10 +30,10 @@ const carteDe = qui => {
   const carte = donnees.modes.find(m => m.o === qui && m.k === 'p');
   return carte ? cleCompte(carte) : '';
 };
-/* La carte du relevé (le + → Import) : celle de la 1re personne. Ses achats n'entrent que par le fichier : une récurrente n'y passe jamais
-   (l'utilisateur, 2026-11-26 : sinon, la ligne de la banque ferait un doublon); un modèle, oui (il ne s'ajoute jamais seul) */
+/* La carte du relevé (le + → Import) : celle de la 1re personne. Ses achats n'entrent que par le fichier : ni une récurrente ni un modèle
+   n'y passent (l'utilisateur, 2026-11-26 : sinon, la ligne de la banque ferait un doublon) */
 const carteReleve = () => carteDe(donnees.p[0]);
-const surLaCarte = r => r.freq !== 'x' && !!r.mode && r.mode === carteReleve();
+const surLaCarte = r => !!r.mode && r.mode === carteReleve();
 
 /* ----- Les parts « Juste pour » ----- */
 /* [[pour qui, montant], …] : jusqu'à 3; une 1re part sans nom = la part de celui qui paie */

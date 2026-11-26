@@ -74,7 +74,7 @@ function appliquerRenommage(k, ancien, nouveau) {
     ['by', 'nzf', 'nzf2', 'nzf3'].forEach(changer);
   } else if (k === 'modes') ['mode', 'to'].forEach(changer);
   else if (k === 'env') changer('env');
-  memoriser(changementsDe(lignes, recurrentes));
+  memoriser(changementsDe(lignes, recurrentes), false); // un nom changé ne change aucun solde : rien à fermer
 }
 const changementsDe = (lignes, recurrentes) => [...lignes].map(objet => ({ genre: 'ligne', objet })).concat([...recurrentes].map(objet => ({ genre: 'rec', objet })));
 

@@ -169,8 +169,8 @@ function appliquerParts(o) {
 /* Dépense et placement : catégorie, qui a payé, avec quel compte. Intérêts et remise : seulement le placement où ils vont */
 function champsFormulaire(e, recurrente) {
   const [N, J] = donnees.p, interetsOuRemise = e.type === 'f';
-  // Une récurrente (pas un modèle) ne passe jamais par la carte du relevé : elle n'est pas offerte, et rien n'est choisi d'avance à sa place
-  const barree = recurrente && e.freq !== 'x' ? carteReleve() : '', carte = carteDe(e.by);
+  // Une récurrente ou un modèle ne passe jamais par la carte du relevé : elle n'est pas offerte, et rien n'est choisi d'avance à sa place
+  const barree = recurrente ? carteReleve() : '', carte = carteDe(e.by);
   const comptes = donnees.modes.filter(m => (!m.o || m.o === e.by) && cleCompte(m) !== barree).map(m => [cleCompte(m), m.n]), cles = comptes.map(x => x[0]);
   const compteChoisi = cles.includes(e.mode) ? e.mode : e.type === 'e' && cles.includes(carte) ? carte : barree && carte === barree ? '' : cles[0];
   partsGardees = e.type === 'e' ? null : e.pj || null;
@@ -224,8 +224,9 @@ function editerEntree(id, pre) {
 
 /* ----- Les modèles (des récurrentes « Aléatoire ») : en haut d'une nouvelle dépense; en toucher un remplit le formulaire ----- */
 const modeles = () => donnees.rec.filter(r => !r.del && r.freq === 'x');
-const choixModeles = () => modeles().length ? `<label>Partir d'un modèle<div class=choix>`
-  + modeles().map(r => `<button type=button onclick="partirDuModele('${r.id}')">${ICONES_TYPE[r.type] || iconeCategorie(r.cat)} ${securiser(r.desc)}</button>`).join('') + '</div></label>' : '';
+const modelesOfferts = () => modeles().filter(r => !surLaCarte(r));
+const choixModeles = () => modelesOfferts().length ? `<label>Partir d'un modèle<div class=choix>`
+  + modelesOfferts().map(r => `<button type=button onclick="partirDuModele('${r.id}')">${ICONES_TYPE[r.type] || iconeCategorie(r.cat)} ${securiser(r.desc)}</button>`).join('') + '</div></label>' : '';
 /* Les parts d'un modèle : gardées par leur nom, même sans montant (sans montant : la part prendra ce qui reste) */
 const partsModele = r => {
   const parts = [[r.nzf || (+r.nz ? r.by : ''), r.nz], [r.nzf2, r.nz2], [r.nzf3, r.nz3]].filter(p => p[0]).map(p => [p[0], +p[1] ? +p[1] : '']);
@@ -234,7 +235,7 @@ const partsModele = r => {
 /* Le modèle donne ce qu'il sait; la date, et le montant s'il n'en a pas, restent tels que tapés. Une part sans montant prend ce qui reste */
 function partirDuModele(idModele) {
   const r = donnees.rec.find(x => x.id === idModele), s = lireEtat();
-  if (!r) return;
+  if (!r || surLaCarte(r)) return;
   const o = { ...s, type: r.type || 'e', desc: r.desc, cat: r.cat, by: r.by, mode: r.mode, env: r.env || '', amt: +r.amt ? +r.amt : s.amt, pj: partsModele(r) };
   o.pj.forEach((p, i) => remplirPart(o, i));
   rouvrir(o);
@@ -333,8 +334,11 @@ function enregistrerEntree(id) {
 function supprimerEntree(id) {
   const x = donnees.ex.find(e => e.id === id), pasEcrite = brouillon(x);
   confirmer(pasEcrite ? 'Supprimer cette ligne ?' : "Supprimer cette ligne ? Une écriture d'annulation sera ajoutée.", () => {
-    if (pasEcrite) oublierBrouillon(x);
-    else {
+    if (pasEcrite) {
+      oublierBrouillon(x);
+      const f = fermer([x.d], 'x' + x.id);
+      if (f.length) memoriser(f, false);
+    } else {
       donnees.ex.push(annulationDe(x, Date.now()));
       memoriser([{ genre: 'annuler', id }]);
     }

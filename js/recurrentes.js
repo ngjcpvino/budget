@@ -4,7 +4,8 @@
    (on part d'un modèle en haut d'une nouvelle dépense : formulaires.js)
    Chaque occurrence a un identifiant fixe : « g » + la récurrence + sa date d'origine. Elle n'est jamais refaite :
    une ligne qu'on a déplacée à une autre date, ou corrigée, garde son identifiant et reste telle quelle.
-   Une récurrente ne passe jamais par la carte du relevé (surLaCarte, modele.js) : une ancienne qui y est ne s'ajoute plus, et sa rangée le dit.
+   Une récurrente ou un modèle ne passe jamais par la carte du relevé (surLaCarte, modele.js) : un ancien qui y est ne s'ajoute plus
+   (un modèle : il n'est plus offert), et sa rangée le dit.
    ===================================================================== */
 
 /* La date de la k-ième occurrence (0 = la première date) */
@@ -40,7 +41,8 @@ const lireRecurrente = () => ({ ...lireFormulaire(), id: trouver('#f_id').value,
 /* Une rangée de la liste : une récurrente (sa fréquence, depuis quand) ou un modèle (son compte; son montant, ou « à entrer ») */
 const rangeeRecurrente = r => `<div class=ligne-depense onclick="pageRecurrentes('${r.id}')"><span class=icone>${ICONES_TYPE[r.type] || iconeCategorie(r.cat) || ''}</span>`
   + `<div><b>${securiser(r.desc)}</b><small>${FREQUENCES[r.freq] + (r.freq === 'x' ? (r.mode ? ' · ' + securiser(r.mode) : '') : ' · dès le ' + r.start)}</small>`
-  + (surLaCarte(r) ? `<small class=texte-principal><b>Sur la ${securiser(nomCompte(r.mode))} : elle ne s'ajoute plus. Touche-la pour changer de compte ou la supprimer.</b></small>` : '') + '</div>'
+  + (surLaCarte(r) ? `<small class=texte-principal><b>Sur la ${securiser(nomCompte(r.mode))} : ${r.freq === 'x' ? "il n'est plus offert. Touche-le pour changer de compte ou le supprimer."
+    : "elle ne s'ajoute plus. Touche-la pour changer de compte ou la supprimer."}</b></small>` : '') + '</div>'
   + (r.freq === 'x' && !+r.amt ? '<small>à entrer</small>' : `<b>${argent(r.amt)}</b>`) + '</div>';
 
 function pageRecurrentes(id, pre) {
@@ -104,7 +106,7 @@ function enregistrerRecurrente() {
   }
   if (o.type === 'm' && !o.env) return afficherMessage('Choisis un placement (à créer dans Plus).');
   if (!o.cat) return afficherMessage('Choisis une catégorie.');
-  if (!modele && (!o.mode || surLaCarte(o))) return afficherMessage(donnees.modes.some(m => (!m.o || m.o === o.by) && cleCompte(m) !== carteReleve())
+  if (!o.mode || surLaCarte(o)) return afficherMessage(donnees.modes.some(m => (!m.o || m.o === o.by) && cleCompte(m) !== carteReleve())
     ? 'Choisis un mode de paiement.' : o.by + " n'a pas d'autre compte que la " + nomCompte(carteReleve()) + ' (Plus → Modifier → Comptes).');
   if (modele && o.amt === '') partsSansMontant(o);
   else {

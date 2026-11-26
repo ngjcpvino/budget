@@ -39,7 +39,8 @@ async function appelServeur(action, data = {}, delai = 30000) {
 /* ----- Enregistrer : dans l'app (déjà fait par l'appelant), dans l'appareil, dans la file; puis l'envoi -----
    changements : [{ genre: 'ligne' | 'creer', objet }, { genre: 'annuler', id }, { genre: 'modifier', id, objet (la nouvelle ligne) },
    { genre: 'rec', objet }, { genre: 'supprimerRec', id }]. Pour annuler et modifier, l'annulation (id + « ~a ») est déjà dans l'app */
-function memoriser(changements) {
+function memoriser(changements, fermer = true) {
+  if (fermer) changements = changements.concat(fermeturesDe(changements));
   const lignes = [], recurrentes = [], envois = [];
   changements.forEach(c => {
     const envoi = { n: Date.now() * 1000 + (numeroEnvoi++ % 1000), genre: c.genre };
@@ -54,6 +55,46 @@ function memoriser(changements) {
   fileEnvois.push(...envois);
   ecrireMemoire({ lignes: lignes.filter(Boolean), recurrentes: recurrentes.filter(Boolean), envois });
   synchroniser();
+}
+
+/* ----- Une vieille année importée se ferme à zéro le 31 décembre (ses lignes « Fermeture AAAA ») : les années d'après ne bougent pas.
+   La corriger (l'utilisateur, 2026-11-26 : « on a importé et je n'ai pas tout vérifié; si on modifie une année antérieure, elle s'auto balance au
+   31 décembre ») : après un changement qui la touche, une ligne « Fermeture » de plus, le 31 décembre, ramène à zéro ce que la 2e personne
+   doit à la 1re et chaque carte de crédit (rien ne s'efface : l'ajustement s'ajoute); puis les années fermées d'après, dans l'ordre.
+   Les tiers et les placements suivent, comme avant. Une ligne de fermeture ne se modifie pas (editerEntree) ----- */
+const estFermeture = id => /^imp\d{4}-fermeture/.test(id || '');
+const anneesFermees = () => [...new Set(donnees.ex.map(e => (/^imp(\d{4})-fermeture/.exec(e.id) || [])[1]).filter(Boolean))].sort();
+function fermeturesDe(changements) {
+  const touches = changements.filter(c => ['ligne', 'creer', 'modifier', 'annuler'].includes(c.genre) && !estFermeture(c.objet ? c.objet.id : c.id));
+  const dates = touches.flatMap(c => [c.objet && c.objet.d, c.id && (donnees.ex.find(e => e.id === c.id) || {}).d]);
+  return touches.length ? fermer(dates, touches[0].objet ? touches[0].objet.id : touches[0].id) : [];
+}
+function fermer(dates, declencheur) {
+  const fermees = anneesFermees(), touchees = dates.filter(Boolean).map(d => d.slice(0, 4)).filter(y => fermees.includes(y)).sort();
+  if (!touchees.length) return [];
+  const [N, J] = lesDeux(), t = Date.now(), changements = [], suite = String(declencheur).replace(/~a$/, '').slice(0, 40);
+  const ajouter = (y, sorte, o) => {
+    const base = 'imp' + y + '-fermeture-' + sorte + '-' + suite;
+    let n = 1;
+    while (donnees.ex.some(e => e.id === base + (n > 1 ? '-' + n : ''))) n++;
+    const ligne = { d: y + '-12-31', desc: 'Fermeture ' + y, cat: '', env: '', mode: '', to: '', nz: 0, nzf: '', nz2: 0, nzf2: '', nz3: 0, nzf3: '', nb: '', ...o, id: base + (n > 1 ? '-' + n : ''), u: t };
+    donnees.ex.push(ligne);
+    changements.push({ genre: 'ligne', objet: ligne });
+  };
+  fermees.filter(y => y >= touchees[0]).forEach(y => {
+    const lignes = lignesJusqua(y + '-12-31'), dette = auCent(soldes(lignes).solde);
+    if (dette) ajouter(y, 'dette', dette > 0 ? { type: 'r', amt: dette, by: J, nzf: N } : { type: 'r', amt: -dette, by: N, nzf: J });
+    donnees.modes.filter(m => m.k === 'p' && estPersonne(m.o)).forEach(m => {
+      const cle = cleCompte(m), reste = auCent((+m.s || 0) + lignes.reduce((s, e) => s + montantPourCompte(e, cle), 0));
+      if (!reste) return;
+      // L'autre compte : celui de la fermeture de l'importation (son débit), sinon son 1er compte qui n'est pas une carte
+      const avant = donnees.ex.find(e => e.d === y + '-12-31' && estFermeture(e.id) && e.type === 't' && (e.to === cle || e.mode === cle));
+      const debit = donnees.modes.find(x => x.o === m.o && x.k !== 'p'), autre = avant ? (avant.to === cle ? avant.mode : avant.to) : debit ? cleCompte(debit) : '';
+      // Ce qui reste à payer : la personne paie sa carte; payé en trop : la carte lui rend
+      ajouter(y, 'carte-' + (m.o === N ? 'n' : 'j'), reste > 0 ? { type: 't', amt: reste, by: m.o, mode: autre, to: cle } : { type: 't', amt: -reste, by: m.o, mode: cle, to: autre });
+    });
+  });
+  return changements;
 }
 
 /* Une ligne pas encore partie vers la feuille, supprimée : elle n'a jamais été écrite; elle sort de l'app, de l'appareil et de la file */
