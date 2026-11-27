@@ -159,7 +159,9 @@ function noterErreur(texte) {
   if (vue === 'err' && !verrou) afficher();
 }
 /* Les erreurs pas encore envoyées partent avec l'appel (data); la feuille dit si elle les a notées */
+let clesVues = false;       // l'app a montré que les clés des anciennes icônes sont retirées : elle le dit à la feuille au prochain appel
 function avecErreurs(data) {
+  if (clesVues) data = { ...data, clesVues: true };
   const parties = erreurs.filter(x => !x.envoyee);
   return parties.length ? { ...data, erreurs: parties.map(({ id, t, texte }) => ({ id, t, texte })), appareil: nomAppareil || deviner() } : data;
 }
@@ -168,6 +170,15 @@ function erreursNotees(data, r) {
   const ids = new Set(data.erreurs.map(x => x.id));
   erreurs.forEach(x => { if (ids.has(x.id)) x.envoyee = true; });
   ecrireMemoire({ etat: { erreurs } });
+}
+/* Après chaque appel à la feuille : les erreurs notées; et, une fois, les clés des anciennes icônes de l'iPad retirées (2026-11-27) */
+function apresAppel(data, r) {
+  erreursNotees(data, r);
+  if (data.clesVues) clesVues = false;
+  if (!r || typeof r.clesRetirees !== 'number') return;
+  const n = r.clesRetirees;
+  clesVues = true;
+  afficherMessage(n === 0 ? "Aucune ancienne clé d'icône à retirer." : n === 1 ? "La clé de l'ancienne icône est retirée." : `Les ${n} clés des anciennes icônes sont retirées.`, true);
 }
 /* Une panne imprévue de l'app (pas un message) : au journal seulement, rien à l'écran, pour que Claude la lise dans la feuille
    (l'utilisateur, 2026-11-27 : « on s'en débarrasse maintenant »). La même deux fois de suite : notée une fois; « reseau » : déjà dit ailleurs */
@@ -196,7 +207,7 @@ async function synchroniser({ tout = false } = {}) {
     if (toutARelire || lecture || !generation) {
       if (lecture === 'echec') { lecture = 'attente'; afficher(); }
       const data = avecErreurs({}), r = await appelServeur('lire', data, 90000);
-      erreursNotees(data, r);
+      apresAppel(data, r);
       toutARelire = false;
       await appliquerTout(r);
     } else if (fileEnvois.length) {
@@ -204,12 +215,12 @@ async function synchroniser({ tout = false } = {}) {
       lot.forEach(e => { e.parti = true; });
       const data = avecErreurs({ changements: lot.map(({ n, parti, ...reste }) => reste), curseur, appareil: nomAppareil });
       const r = await appelServeur('ecrire', data);
-      erreursNotees(data, r);
+      apresAppel(data, r);
       fileEnvois = fileEnvois.filter(e => !lot.includes(e));
       await appliquerReponse(r, lot.map(e => e.n));
     } else {
       const data = avecErreurs({ curseur, generation }), r = await appelServeur('changements', data);
-      erreursNotees(data, r);
+      apresAppel(data, r);
       if (r.complet) await appliquerTout(r); else await appliquerReponse(r, []);
     }
     lecture = '';
