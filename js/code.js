@@ -116,7 +116,7 @@ async function traiterCode() {
       await appelServeur('choisirCode', { nouvelle: h, actuelle: code.e || '' });
       garderCode({ sel: code.sel, e: h });
       ouvrirApp();
-      return afficherMessage(premiereFois ? 'Code enregistré.' : 'Code changé.');
+      return afficherMessage(premiereFois ? 'Code enregistré.' : 'Code changé.', true);
     }
     const h = await empreinte(chiffres), bon = () => {
       if (v.etape === 'actuel') { v.ch = ''; v.etape = 'nouveau'; } else ouvrirApp();
@@ -161,7 +161,7 @@ async function relier(v, chiffres) {
   cleAppareil = r.cle;
   nomAppareil = deviner();
   await ecrireMemoire({ etat: { cle: cleAppareil, appareil: nomAppareil } });
-  afficherMessage('Appareil relié.');
+  afficherMessage('Appareil relié.', true);
   verrouiller();
 }
 /* Pas d'autre appareil sous la main : la feuille envoie un code à l'adresse du budget (on ne la tape pas, on ne la voit pas).
@@ -176,7 +176,7 @@ async function codeParCourriel() {
     const r = await appelServeur('codeParCourriel');
     if (r.envoye) {
       v.parti = Date.now();
-      afficherMessage('Le code est parti : regarde tes courriels.');
+      afficherMessage('Le code est parti : regarde tes courriels.', true);
     } else afficherMessage(r.apres ? `Trop de codes demandés : réessaie après ${heureCourte(r.apres)}.` : "Le courriel n'a pas pu partir : réessaie plus tard.");
   } catch (e) {
     afficherMessage(e.message === 'reseau' ? 'Il faut le réseau pour recevoir un code.' : 'Connexion impossible : réessaie.');
@@ -225,7 +225,6 @@ function ouvrirApp() {
 function erreurCode(e) {
   const sorte = sorteCode(e);
   if (!sorte) return false;
-  afficherStatut('');
   if (sorte === 'attendre') afficherMessage("Trop d'essais : attends une minute.");
   else {
     garderCode({ sel: code.sel });

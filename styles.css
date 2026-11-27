@@ -45,6 +45,9 @@
   --largeur-page:720px;
   --hauteur-champ:44px;
   --espace:12px;
+  /* Un contour appuyé (les points du code, le message au centre) et l'ombre du message, qui le détache de la page */
+  --contour-fort:2px;
+  --ombre:0 6px 24px rgba(46,29,18,.18);
   /* Le haut de l'écran : sur l'iPad, en mode app, une barre floue (24 points) couvre le haut; tout commence sous elle */
   --haut-ecran:max(env(safe-area-inset-top),24px);
 
@@ -70,9 +73,13 @@ label select,label input{display:block;margin-top:4px}
 
 /* La page est une colonne centrée : bien remplie sur iPad, étroite sur ordinateur */
 header,main,#navigation,#feuille{max-width:var(--largeur-page);margin-inline:auto}
-header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:8px;background:var(--couleur-fond);border-bottom:1px solid var(--couleur-ligne);padding:calc(var(--haut-ecran) + 10px) 16px 10px}
+header{position:sticky;top:0;z-index:5;background:var(--couleur-fond);border-bottom:1px solid var(--couleur-ligne);padding:calc(var(--haut-ecran) + 10px) 16px 10px}
 /* Le menu des années prend la largeur de sa plus longue option : on le borne pour garder le titre sur une ligne */
 header select{width:auto;max-width:45%;background-color:var(--couleur-fond)}
+.entete-ligne{display:flex;align-items:center;gap:8px}
+/* Ce qui attend la feuille : une petite bande sous l'en-tête, tant que ce n'est pas envoyé (small orange : .texte-principal) */
+.attente{display:none;margin:10px -16px -10px;padding:6px 16px;background:var(--couleur-champ);text-align:center;border-top:1px solid var(--couleur-ligne)}
+.attente.ouvert{display:block}
 main{padding:14px 16px}
 
 /* =====================================================================
@@ -219,7 +226,7 @@ b.negatif{color:var(--couleur-danger)}
 .colonne{flex:1;display:flex;align-items:flex-end;cursor:pointer}
 .pile{width:100%;display:flex;flex-direction:column-reverse;min-height:2px}
 .pile i{display:block}
-.ligne-moyenne{position:absolute;left:0;right:0;border-top:2px dashed var(--couleur-texte);z-index:2;pointer-events:none}
+.ligne-moyenne{position:absolute;left:0;right:0;border-top:var(--contour-fort) dashed var(--couleur-texte);z-index:2;pointer-events:none}
 .etiquettes-mois{display:flex;gap:6px;margin-top:4px}
 .etiquettes-mois span{flex:1;text-align:center}
 /* Sur iPhone, la première lettre du mois seulement (data-i) */
@@ -256,9 +263,14 @@ b.negatif{color:var(--couleur-danger)}
 .code h1,.code p{margin:0}
 /* Les chiffres touchés : 4 petits carrés orange; le pavé : des boutons carrés (.carre), plus grands */
 .points{display:flex;gap:14px}
-.points i{width:18px;height:18px;border:2px solid var(--couleur-principale)}
+.points i{width:18px;height:18px;border:var(--contour-fort) solid var(--couleur-principale)}
 .points i.plein{background:var(--couleur-principale)}
 .pave{display:grid;grid-template-columns:repeat(3,76px);gap:10px}
 .pave .carre{width:76px;height:76px;font-weight:600}
 
-#message{position:fixed;top:calc(var(--haut-ecran) + 10px);left:50%;transform:translateX(-50%);background:var(--couleur-texte);color:var(--couleur-fond);padding:8px 14px;z-index:20;display:none;font-size:var(--taille-petit);max-width:90%}
+/* Le message : au centre, par-dessus tout (l'écran du code aussi), son symbole au-dessus : ⚠️ une erreur, ✅ une bonne nouvelle.
+   Il part tout seul ou quand on le touche */
+#message{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:20;display:none;flex-direction:column;align-items:center;gap:6px;width:max-content;max-width:min(80vw,var(--largeur-page));padding:18px 26px;background:var(--couleur-fond);border:var(--contour-fort) solid var(--couleur-principale);box-shadow:var(--ombre);font-size:var(--taille-gros);font-weight:700;line-height:1.3;text-align:center;cursor:pointer}
+#message.ouvert{display:flex}
+#message::before{content:'⚠️';font-size:var(--taille-titre);line-height:1}
+#message.bon::before{content:'✅'}

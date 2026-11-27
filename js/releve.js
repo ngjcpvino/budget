@@ -200,5 +200,5 @@ function enregistrerReleve() {
   memoriser(changements);
   releve = null;
   aller(retourReleve);
-  afficherMessage(cochees.length > 1 ? cochees.length + ' lignes ajoutées.' : '1 ligne ajoutée.');
+  afficherMessage(cochees.length > 1 ? cochees.length + ' lignes ajoutées.' : '1 ligne ajoutée.', true);
 }

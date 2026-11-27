@@ -50,6 +50,7 @@ function ajouterTiers() {
 /* ----- Page Plus ----- */
 function pagePlus() {
   return `<div class=carte><h3>Données</h3><div class=boutons><button onclick="actualiser()">Actualiser</button><button onclick="copieSecurite()">Copie de sécurité</button></div></div>`
+    + `<div class=carte><h3>Erreurs</h3><div class=boutons><button onclick="aller('err')">Voir les erreurs</button></div></div>`
     + `<div class=carte><h3>Comptes</h3><div class=boutons><button onclick="aller('cpt')">Voir les soldes des comptes</button><button onclick="aller('gl')">GL</button></div></div>`
     + `<div class=carte><h3>Récurrentes</h3><div class=boutons><button onclick="pageRecurrentes()">Gérer les récurrentes</button></div></div>`
     + `<div class=carte><h3>Modifier</h3><div class=boutons><button onclick="listeModifiable('cats')">Catégories</button><button onclick="listeModifiable('tiers')">Tiers</button><button onclick="listeModifiable('env')">Placements</button><button onclick="listeModifiable('modes')">Comptes</button></div></div>`
@@ -57,6 +58,14 @@ function pagePlus() {
     + `<label class=espace-haut>Relier un autre appareil : envoyer le lien et le code à<input id=f_courriel type=email autocomplete=email></label>`
     + '<div class=boutons><button id=b_courriel class=bouton-principal onclick="relierAutreAppareil()">Envoyer</button></div></div>'
     + '<div class=carte><div class=boutons><button onclick="verrouiller()">Déconnexion</button></div></div>';
+}
+
+/* Plus → Erreurs : le journal des erreurs de cet appareil, la plus récente en haut (les rangées de Dépenses, comme le GL; rien ne s'y touche) */
+function pageErreurs() {
+  return `<p class=texte-discret>Les erreurs de cet appareil, la plus récente en haut (les ${ERREURS_GARDEES} dernières).</p>`
+    + (erreurs.map(x => `<div class=ligne-depense>${caseDate(dateIso(new Date(x.t)))}<span class=icone>⚠️</span>`
+      + `<div><b>${securiser(x.texte)}</b><small>${heureCourte(x.t)} · ${securiser(nomAppareil || deviner())}</small></div></div>`).join('')
+      || '<div class=vide>Aucune erreur.</div>');
 }
 
 /* La copie de sécurité : tout le budget dans un fichier (budget-2026-11-02.json) */

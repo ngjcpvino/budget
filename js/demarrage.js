@@ -17,11 +17,12 @@ let avaitUneVersion = false, versionPrete = false;   // la mise à jour toute se
     donnees.rec = m.recurrentes;
   }
   fileEnvois = m.envois;
+  erreurs = [...erreurs, ...(etat.erreurs || [])].slice(0, ERREURS_GARDEES);   /* une erreur déjà notée pendant la lecture de la mémoire reste en haut */
   lecture = donnees.ex.length ? '' : 'attente';
   afficher();
   verrouiller();
   try {
-    if (sessionStorage.getItem('budgetMiseAJour')) { sessionStorage.removeItem('budgetMiseAJour'); afficherMessage("L'app vient de se mettre à jour."); }
+    if (sessionStorage.getItem('budgetMiseAJour')) { sessionStorage.removeItem('budgetMiseAJour'); afficherMessage("L'app vient de se mettre à jour.", true); }
   } catch (e) { /* sans sessionStorage : pas de message, rien d'autre */ }
   /* La copie de l'app dans l'appareil (sw.js) : elle s'ouvre même sans réseau. Et demander que sa mémoire ne soit jamais vidée */
   if ('serviceWorker' in navigator) {

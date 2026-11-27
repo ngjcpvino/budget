@@ -23,13 +23,16 @@
 <body>
 <div id="verrou"></div>
 <header>
-  <h1 id="titre"></h1>
-  <select id="annees" onchange="changerAnnee(this.value)"></select>
-  <button class="bouton-ajouter carre bouton-principal" onclick="nouvelleEntree()" aria-label="Nouvelle entrée"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+  <div class="entete-ligne">
+    <h1 id="titre"></h1>
+    <select id="annees" onchange="changerAnnee(this.value)"></select>
+    <button class="bouton-ajouter carre bouton-principal" onclick="nouvelleEntree()" aria-label="Nouvelle entrée"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+  </div>
+  <small id="attente" class="attente texte-principal">Hors ligne : sera envoyé plus tard.</small>
 </header>
 <div id="bande" class="bande"></div>
 <main id="contenu"></main>
-<div id="message"></div>
+<div id="message" onclick="fermerMessage()"></div>
 <nav id="navigation"></nav>
 <input type="file" id="fr" accept=".csv,text/csv" hidden onchange="lireReleve(this)">
 <div id="modale" onclick="if(event.target==this)fermerFenetre()"><div id="feuille"></div></div>

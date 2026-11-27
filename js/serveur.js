@@ -121,17 +121,53 @@ function configuration() {
   return { p: donnees.p, cats: donnees.cats, tiers: donnees.tiers, modes: donnees.modes, ic: donnees.ic || {}, cc: donnees.cc || {}, gone: donnees.gone || [], yrs: donnees.yrs || [], env: donnees.env || [] };
 }
 
-/* ----- Les messages en haut de l'écran ----- */
+/* ----- Les messages au centre de l'écran (la règle commune « un message se voit »; l'utilisateur, 2026-11-27, choix 4 sur l'aperçu) -----
+   Par-dessus tout, avec son symbole (dans le style) : ⚠️ une erreur, ✅ une bonne nouvelle (bon). Il part tout seul après quelques
+   secondes (plus longtemps pour un long texte) ou quand on le touche; un nouveau remplace celui qui est là.
+   Tout ce qui n'est pas une bonne nouvelle va aussi au journal des erreurs (noterErreur) */
 let minuterieMessage = null;
-function afficherStatut(texte) {
+const dureeMessage = texte => Math.min(3000 + 50 * texte.length, 8000);
+function afficherMessage(texte, bon = false) {
   const x = trouver('#message');
+  texte = String(texte);
   x.textContent = texte;
-  x.style.display = texte ? 'block' : 'none';
-}
-function afficherMessage(texte) {
-  afficherStatut(texte);
+  x.classList.toggle('bon', bon);
+  x.classList.add('ouvert');
   clearTimeout(minuterieMessage);
-  minuterieMessage = setTimeout(() => afficherStatut(fileEnvois.length && !navigator.onLine ? 'Hors ligne : sera envoyé plus tard.' : ''), 3500);
+  minuterieMessage = setTimeout(fermerMessage, dureeMessage(texte));
+  if (!bon) noterErreur(texte);
+}
+function fermerMessage() {
+  clearTimeout(minuterieMessage);
+  trouver('#message').classList.remove('ouvert');
+}
+
+/* Ce qui attend la feuille (l'utilisateur, 2026-11-27, choix 1 : le calme) : rien pendant la lecture et l'envoi. Un envoi qui ne passe pas :
+   le message au centre une fois, puis la petite bande sous l'en-tête (« Hors ligne : sera envoyé plus tard. ») tant que la file n'est pas partie */
+function montrerAttente(oui) {
+  trouver('#attente').classList.toggle('ouvert', oui);
+}
+const enAttenteAffichee = () => trouver('#attente').classList.contains('ouvert');
+
+/* ----- Le journal des erreurs (l'utilisateur, 2026-11-27 : « Les deux ») : gardé dans l'appareil, les 100 dernières (Plus → Erreurs),
+   et envoyé avec le prochain appel à la feuille (son onglet « Erreurs »; la feuille ne garde jamais deux fois la même) ----- */
+const ERREURS_GARDEES = 100;
+let erreurs = [];            // la plus récente en premier : { id, t (l'heure de l'appareil), texte, envoyee }
+function noterErreur(texte) {
+  erreurs = [{ id: nouvelId(), t: Date.now(), texte: texte.slice(0, 300) }, ...erreurs].slice(0, ERREURS_GARDEES);
+  ecrireMemoire({ etat: { erreurs } });
+  if (vue === 'err' && !verrou) afficher();
+}
+/* Les erreurs pas encore envoyées partent avec l'appel (data); la feuille dit si elle les a notées */
+function avecErreurs(data) {
+  const parties = erreurs.filter(x => !x.envoyee);
+  return parties.length ? { ...data, erreurs: parties.map(({ id, t, texte }) => ({ id, t, texte })), appareil: nomAppareil || deviner() } : data;
+}
+function erreursNotees(data, r) {
+  if (!data.erreurs || !r || !r.erreursNotees) return;
+  const ids = new Set(data.erreurs.map(x => x.id));
+  erreurs.forEach(x => { if (ids.has(x.id)) x.envoyee = true; });
+  ecrireMemoire({ etat: { erreurs } });
 }
 
 /* ----- Synchroniser : envoyer la file, recevoir ce qui a changé (ou tout relire) ----- */
@@ -147,25 +183,27 @@ async function synchroniser({ tout = false } = {}) {
   try {
     if (toutARelire || lecture || !generation) {
       if (lecture === 'echec') { lecture = 'attente'; afficher(); }
-      afficherStatut('Chargement…');
-      const r = await appelServeur('lire', {}, 90000);
+      const data = avecErreurs({}), r = await appelServeur('lire', data, 90000);
+      erreursNotees(data, r);
       toutARelire = false;
       await appliquerTout(r);
     } else if (fileEnvois.length) {
       const lot = fileEnvois.slice();
       lot.forEach(e => { e.parti = true; });
-      afficherStatut('Enregistrement…');
-      const r = await appelServeur('ecrire', { changements: lot.map(({ n, parti, ...reste }) => reste), curseur, appareil: nomAppareil });
+      const data = avecErreurs({ changements: lot.map(({ n, parti, ...reste }) => reste), curseur, appareil: nomAppareil });
+      const r = await appelServeur('ecrire', data);
+      erreursNotees(data, r);
       fileEnvois = fileEnvois.filter(e => !lot.includes(e));
       await appliquerReponse(r, lot.map(e => e.n));
     } else {
-      const r = await appelServeur('changements', { curseur, generation });
+      const data = avecErreurs({ curseur, generation }), r = await appelServeur('changements', data);
+      erreursNotees(data, r);
       if (r.complet) await appliquerTout(r); else await appliquerReponse(r, []);
     }
     lecture = '';
     genererRecurrentes();
     attribuerCouleurs();
-    afficherStatut('');
+    montrerAttente(false);
     afficher();
     if (messageApres && !toutARelire) { afficherMessage(messageApres); messageApres = ''; }
   } catch (e) {
@@ -173,7 +211,10 @@ async function synchroniser({ tout = false } = {}) {
     fileEnvois.forEach(x => { delete x.parti; });
     if (erreurCle(e) || erreurCode(e)) return;
     if (lecture) { lecture = 'echec'; afficher(); }
-    afficherStatut(fileEnvois.length ? 'Hors ligne : sera envoyé plus tard.' : e.message === 'reseau' ? '' : 'Connexion impossible : ' + e.message);
+    /* Rien n'attend : sans réseau, rien à dire; une autre panne se dit. Quelque chose attend : dit une fois, puis la bande reste */
+    const panne = e.message === 'reseau' ? 'Hors ligne : sera envoyé plus tard.' : 'Connexion impossible : ' + e.message;
+    if (!fileEnvois.length) { if (e.message !== 'reseau') afficherMessage(panne); }
+    else if (!enAttenteAffichee()) { afficherMessage(panne); montrerAttente(true); }
   } finally {
     synchroEnCours = false;
     if (!echec && (synchroARefaire || fileEnvois.length || toutARelire)) synchroniser();
@@ -265,7 +306,6 @@ function erreurCle(e) {
   if (!/^CLE:/.test(String(e && e.message))) return false;
   cleAppareil = '';
   ecrireMemoire({ etat: { cle: '' } });
-  afficherStatut('');
   verrouiller('liaison');
   return true;
 }
