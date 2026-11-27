@@ -169,6 +169,18 @@ function erreursNotees(data, r) {
   erreurs.forEach(x => { if (ids.has(x.id)) x.envoyee = true; });
   ecrireMemoire({ etat: { erreurs } });
 }
+/* Une panne imprévue de l'app (pas un message) : au journal seulement, rien à l'écran, pour que Claude la lise dans la feuille
+   (l'utilisateur, 2026-11-27 : « on s'en débarrasse maintenant »). La même deux fois de suite : notée une fois; « reseau » : déjà dit ailleurs */
+function noterPanne(texte) {
+  texte = ("Panne dans l'app : " + texte).slice(0, 300);
+  if (erreurs[0] && erreurs[0].texte === texte) return;
+  try { noterErreur(texte); } catch (e) { /* jamais une panne dans la panne */ }
+}
+window.addEventListener('error', e => noterPanne((e.message || 'inconnue') + (e.filename ? ' (' + e.filename.split('/').pop() + ', ligne ' + e.lineno + ')' : '')));
+window.addEventListener('unhandledrejection', e => {
+  const texte = String((e.reason && e.reason.message) || e.reason || 'inconnue');
+  if (texte !== 'reseau') noterPanne(texte);
+});
 
 /* ----- Synchroniser : envoyer la file, recevoir ce qui a changé (ou tout relire) ----- */
 async function synchroniser({ tout = false } = {}) {
