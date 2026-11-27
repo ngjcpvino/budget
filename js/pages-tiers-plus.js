@@ -49,7 +49,7 @@ function ajouterTiers() {
 
 /* ----- Page Plus ----- */
 function pagePlus() {
-  return `<div class=carte><h3>Données</h3><div class=boutons><button onclick="actualiser()">Actualiser</button><button onclick="copieSecurite()">Copie de sécurité</button></div></div>`
+  return `<div class=carte><h3>Données</h3><div class=boutons><button onclick="actualiser()">Actualiser</button><button onclick="copieSecurite()">Copie de sécurité</button><button onclick="remettreUneCopie()">Remettre une copie</button></div></div>`
     + `<div class=carte><h3>Erreurs</h3><div class=boutons><button onclick="aller('err')">Voir les erreurs</button></div></div>`
     + `<div class=carte><h3>Comptes</h3><div class=boutons><button onclick="aller('cpt')">Voir les soldes des comptes</button><button onclick="aller('gl')">GL</button></div></div>`
     + `<div class=carte><h3>Récurrentes</h3><div class=boutons><button onclick="pageRecurrentes()">Gérer les récurrentes</button></div></div>`
@@ -66,6 +66,103 @@ function pageErreurs() {
     + (erreurs.map(x => `<div class=ligne-depense>${caseDate(dateIso(new Date(x.t)))}<span class=icone>⚠️</span>`
       + `<div><b>${securiser(x.texte)}</b><small>${heureCourte(x.t)} · ${securiser(nomAppareil || deviner())}</small></div></div>`).join('')
       || '<div class=vide>Aucune erreur.</div>');
+}
+
+/* ----- Remettre une copie de la nuit (l'utilisateur, 2026-11-27, choix 2 sur l'aperçu : « Construit pour que je sois autonome ») -----
+   Une seule fenêtre : la nuit la plus récente choisie d'avance, le menu pour les autres, ce qu'elle contient, Annuler · Confirmer.
+   La feuille garde son adresse; une copie d'elle est gardée à côté, dans le Drive; les lignes reçues depuis la nuit de la copie
+   (sauf celles qui attendent encore leur envoi : elles partent ensuite, comme toujours) sont remises par-dessus. Le serveur fait le reste */
+let remise = null;           // la fenêtre ouverte : { copies, id, contenu, envoi, dessinee }
+const nomNuit = (quand, long) => {
+  const d = new Date(quand), jour = JOURS[d.getDay()] + ' ' + d.getDate() + ' ' + MOIS_ABREGES[d.getMonth()], heure = heureCourte(quand);
+  const cetteNuit = dateIso(d) === aujourdhui();
+  if (long) return cetteNuit ? 'Cette nuit (' + jour + ', ' + heure + ')' : jour.charAt(0).toUpperCase() + jour.slice(1) + ', ' + heure;
+  return cetteNuit ? 'de cette nuit' : 'du ' + jour;
+};
+/* Ce que l'appareil a reçu depuis la nuit de la copie (une ligne qui attend encore son envoi partira ensuite, comme toujours) */
+function depuisLaCopie(quand) {
+  const attente = enAttente();
+  return { lignes: donnees.ex.filter(e => (e.u || 0) > quand && !attente.has('l:' + e.id)), recurrentes: donnees.rec.filter(x => (x.u || 0) > quand && !attente.has('r:' + x.id)) };
+}
+async function remettreUneCopie() {
+  if (lecture) return afficherMessage(PAS_LUES);
+  remise = { copies: [], id: '', contenu: null, envoi: false, liste: false };
+  dessinerRemise();
+  try {
+    const r = await appelServeur('copies', {}, 120000);
+    if (!remise) return;
+    Object.assign(remise, { copies: r.copies, id: r.copies.length ? r.copies[0].id : '', contenu: r.contenu, liste: true });
+    dessinerRemise();
+  } catch (e) {
+    remise = null;
+    fermerFenetre();
+    if (erreurCle(e) || erreurCode(e)) return;
+    afficherMessage(texteRemise(e));
+  }
+}
+const texteRemise = e => e.message === 'reseau' ? 'Il faut le réseau pour remettre une copie.'
+  : e.message === 'COPIE:illisible' ? 'Cette copie ne se lit pas : choisis une autre nuit. Ta feuille n\'a pas changé.'
+  : e.message === 'COPIE:inconnue' ? 'Cette copie n\'est plus dans le Drive.' : 'Connexion impossible : ' + e.message;
+async function choisirCopie(id) {
+  if (!remise || remise.envoi) return;
+  Object.assign(remise, { id, contenu: null });
+  dessinerRemise();
+  try {
+    const c = await appelServeur('contenuCopie', { id }, 120000);
+    if (remise && remise.id === id) { remise.contenu = c; dessinerRemise(); }
+  } catch (e) {
+    if (erreurCle(e) || erreurCode(e)) return;
+    afficherMessage(texteRemise(e));
+  }
+}
+function dessinerRemise() {
+  const r = remise;
+  if (!r) return;
+  /* La fenêtre fermée entre-temps (toucher à côté) : on oublie tout */
+  if (r.dessinee && !trouver('#f_remise')) { remise = null; return; }
+  r.dessinee = true;
+  const copie = r.copies.find(c => c.id === r.id), c = r.contenu;
+  const menu = r.copies.length ? `<label>La nuit<select id=f_copie onchange="choisirCopie(this.value)"${r.envoi ? ' disabled' : ''}>`
+    + r.copies.map(x => `<option value="${securiser(x.id)}"${x.id === r.id ? ' selected' : ''}>${securiser(nomNuit(x.quand, true))}</option>`).join('') + '</select></label>' : '';
+  let corps;
+  if (!r.liste) corps = '<p class=texte-discret>Lecture des copies…</p>';
+  else if (!r.copies.length) corps = '<p class=texte-discret>Aucune copie de la nuit dans ton Drive (le dossier « Sauvegardes Apps »).</p>';
+  else if (!c) corps = '<p class=texte-discret>Lecture de la copie…</p>';
+  else {
+    const d = depuisLaCopie(copie.quand), n = d.lignes.length + d.recurrentes.length;
+    const ensuite = n === 0 ? 'Rien n\'a été entré depuis cette nuit-là.' : n === 1 ? 'Puis la ligne entrée depuis cette nuit-là est remise par-dessus.'
+      : `Puis les ${n.toLocaleString('fr-CA')} lignes entrées depuis cette nuit-là sont remises par-dessus.`;
+    corps = `<div class="carte espace-haut"><h3>Ce qu'elle contient</h3><p class=texte-discret>Dépenses <b>${c.lignes.toLocaleString('fr-CA')} ${c.lignes > 1 ? 'lignes' : 'ligne'}</b></p>`
+      + `<p class=texte-discret>La plus récente <b>${c.recente ? securiser(c.recente.desc) + ', ' + dateCourte(c.recente.d) : '—'}</b></p>`
+      + `<p class=texte-discret>Récurrentes <b>${c.recurrentes.toLocaleString('fr-CA')}</b></p></div>`
+      + `<p class=texte-discret>Ta feuille d'aujourd'hui est d'abord copiée à côté, dans ton Drive (« Budget — avant la remise du ${dateCourte(aujourdhui())} »). ${ensuite}</p>`;
+  }
+  ouvrirFenetre(`<div id=f_remise><h2>Remettre une copie</h2>${menu}${corps}<div class="boutons espace-haut">`
+    + `<button onclick="remise=null;fermerFenetre()"${r.envoi ? ' disabled' : ''}>Annuler</button>`
+    + `<button class=bouton-danger onclick="confirmerRemise()"${!c || r.envoi ? ' disabled' : ''}>${r.envoi ? 'Remise…' : 'Confirmer'}</button></div></div>`);
+}
+async function confirmerRemise() {
+  const r = remise;
+  if (!r || r.envoi || !r.contenu) return;
+  const copie = r.copies.find(c => c.id === r.id);
+  r.envoi = true;
+  dessinerRemise();
+  /* D'abord, ce que l'autre appareil a envoyé depuis la dernière lecture (sans réseau : on remet ce qu'on a) */
+  try { await synchroniser(); } catch (e) { /* on continue avec ce que l'appareil a */ }
+  const d = depuisLaCopie(copie.quand);
+  try {
+    const res = await appelServeur('remettreCopie', { id: copie.id, lignes: d.lignes, recurrentes: d.recurrentes,
+      reglages: donnees.cu > copie.quand ? { ...configuration(), u: donnees.cu } : null, appareil: nomAppareil || deviner() }, 280000);
+    remise = null;
+    fermerFenetre();
+    synchroniser({ tout: true });
+    afficherMessage('Copie ' + nomNuit(copie.quand) + ' remise.' + (res.remises === 1 ? ' 1 ligne remise par-dessus.' : res.remises > 1 ? ` ${res.remises.toLocaleString('fr-CA')} lignes remises par-dessus.` : ''), true);
+  } catch (e) {
+    r.envoi = false;
+    if (erreurCle(e) || erreurCode(e)) return;
+    dessinerRemise();
+    afficherMessage(e.message === 'reseau' ? 'Pas de réponse de la feuille : réessaie (remettre deux fois la même copie ne double rien).' : texteRemise(e));
+  }
 }
 
 /* La copie de sécurité : tout le budget dans un fichier (budget-2026-11-02.json) */
