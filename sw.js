@@ -8,7 +8,7 @@
    Ne touche jamais à la feuille (les appels POST vers Apps Script).
    ===================================================================== */
 
-const VERSION = '760ab66e7146';
+const VERSION = '384cf1f6c842';
 const EMPREINTES = {
   './': '18429cdbf7e0d512',
   'index.html': '18429cdbf7e0d512',
@@ -22,7 +22,7 @@ const EMPREINTES = {
   'js/etat.js': 'c8ef18c897f7b319',
   'js/modele.js': 'f6a917e6a049c16f',
   'js/memoire.js': 'a8dbde51882722b9',
-  'js/serveur.js': '0347aeb5c02f62f9',
+  'js/serveur.js': '747dadfbe21f8a91',
   'js/pages-accueil.js': 'eab1e2828eee21a5',
   'js/pages-depenses.js': 'd3688ce417ee0a15',
   'js/pages-placements.js': '795b89223fbf83c1',
